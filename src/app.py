@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
+from pydantic import BaseModel
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -38,19 +39,66 @@ activities = {
         "schedule": "Mondays, Wednesdays, Fridays, 2:00 PM - 3:00 PM",
         "max_participants": 30,
         "participants": ["john@mergington.edu", "olivia@mergington.edu"]
+    },
+    # Sports related activities
+    "Soccer Team": {
+        "description": "Join the school soccer team and compete in matches",
+        "schedule": "Wednesdays, 4:00 PM - 5:30 PM",
+        "max_participants": 22,
+        "participants": ["alex@mergington.edu", "lucas@mergington.edu"]
+    },
+    "Basketball Club": {
+        "description": "Practice basketball skills and play friendly games",
+        "schedule": "Thursdays, 3:30 PM - 5:00 PM",
+        "max_participants": 15,
+        "participants": ["mia@mergington.edu", "noah@mergington.edu"]
+    },
+    # Artistic activities
+    "Art Workshop": {
+        "description": "Explore painting, drawing, and sculpture techniques",
+        "schedule": "Mondays, 4:00 PM - 5:30 PM",
+        "max_participants": 18,
+        "participants": ["ava@mergington.edu", "liam@mergington.edu"]
+    },
+    "Drama Club": {
+        "description": "Act, direct, and produce school plays and performances",
+        "schedule": "Fridays, 3:30 PM - 5:30 PM",
+        "max_participants": 20,
+        "participants": ["ella@mergington.edu", "jack@mergington.edu"]
+    },
+    # Intellectual activities
+    "Math Olympiad": {
+        "description": "Prepare for math competitions and solve challenging problems",
+        "schedule": "Tuesdays, 4:00 PM - 5:00 PM",
+        "max_participants": 16,
+        "participants": ["ethan@mergington.edu", "grace@mergington.edu"]
+    },
+    "Science Club": {
+        "description": "Conduct experiments and explore scientific concepts",
+        "schedule": "Thursdays, 4:00 PM - 5:30 PM",
+        "max_participants": 14,
+        "participants": ["chloe@mergington.edu", "ben@mergington.edu"]
     }
 }
 
+
+
+
+
+
+
+# --- Endpoint para eliminar participante ---
+class UnregisterRequest(BaseModel):
+    activity_name: str
+    email: str
 
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
 
-
 @app.get("/activities")
 def get_activities():
     return activities
-
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
@@ -58,10 +106,28 @@ def signup_for_activity(activity_name: str, email: str):
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
-
-    # Get the specific activity
     activity = activities[activity_name]
-
     # Add student
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student already signed up for this activity")
     activity["participants"].append(email)
     return {"message": f"Signed up {email} for {activity_name}"}
+
+@app.post("/activities/unregister")
+def unregister_participant(req: UnregisterRequest):
+    print(f"Nombre recibido: '{req.activity_name}'")
+    print(f"Nombres disponibles: {[k for k in activities.keys()]}")
+    normalized_name = req.activity_name.strip().lower()
+    found = None
+    for key in activities:
+        if key.strip().lower() == normalized_name:
+            found = key
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity = activities[found]
+    if req.email not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Participant not found in this activity")
+    activity["participants"].remove(req.email)
+    return {"message": f"{req.email} removed from {found}"}
