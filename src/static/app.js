@@ -27,7 +27,12 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="participants-section">
               <strong>Participants:</strong>
               <ul class="participants-list">
-                ${details.participants.map(email => `<li>${email}</li>`).join("")}
+                ${details.participants.map(email => `
+                  <li>
+                    <span>${email}</span>
+                    <span class="delete-participant" title="Eliminar" data-activity="${name}" data-email="${email}">&#128465;</span>
+                  </li>
+                `).join("")}
               </ul>
             </div>
           `;
@@ -55,6 +60,32 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = name;
         option.textContent = name;
         activitySelect.appendChild(option);
+      }); 
+      
+      // Delegación de evento para eliminar participante
+      activitiesList.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("delete-participant")) {
+          let activityName = e.target.getAttribute("data-activity");
+          const email = e.target.getAttribute("data-email");
+          activityName = activityName.trim();
+          if (confirm(`¿Eliminar a ${email} de ${activityName}?`)) {
+            try {
+              const response = await fetch(`/activities/unregister`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activity_name: activityName, email })
+              });
+              if (!response.ok) {
+                const error = await response.json();
+                alert(error.detail || "Error al eliminar participante.");
+              } else {
+                fetchActivities(); // Recargar actividades
+              }
+            } catch (err) {
+              alert("Error de red al eliminar participante.");
+            }
+          }
+        }
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
@@ -80,9 +111,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
 
       if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
-        signupForm.reset();
+  messageDiv.textContent = result.message;
+  messageDiv.className = "success";
+  signupForm.reset();
+  fetchActivities(); // Recargar actividades para mostrar el nuevo participante
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";

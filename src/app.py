@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
+from pydantic import BaseModel
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -81,15 +82,23 @@ activities = {
 }
 
 
+
+
+
+
+
+# --- Endpoint para eliminar participante ---
+class UnregisterRequest(BaseModel):
+    activity_name: str
+    email: str
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
 
-
 @app.get("/activities")
 def get_activities():
     return activities
-
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
@@ -97,13 +106,28 @@ def signup_for_activity(activity_name: str, email: str):
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
-
-    # Get the specific activity
     activity = activities[activity_name]
-
     # Add student
     # Validate student is not already signed up
     if email in activity["participants"]:
         raise HTTPException(status_code=400, detail="Student already signed up for this activity")
     activity["participants"].append(email)
     return {"message": f"Signed up {email} for {activity_name}"}
+
+@app.post("/activities/unregister")
+def unregister_participant(req: UnregisterRequest):
+    print(f"Nombre recibido: '{req.activity_name}'")
+    print(f"Nombres disponibles: {[k for k in activities.keys()]}")
+    normalized_name = req.activity_name.strip().lower()
+    found = None
+    for key in activities:
+        if key.strip().lower() == normalized_name:
+            found = key
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity = activities[found]
+    if req.email not in activity["participants"]:
+        raise HTTPException(status_code=404, detail="Participant not found in this activity")
+    activity["participants"].remove(req.email)
+    return {"message": f"{req.email} removed from {found}"}
